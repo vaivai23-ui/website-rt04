@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>RT 04 RW 08 Sindangbarang Loji</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
+    header { background: #2c3e50; color: #fff; padding: 15px; text-align: center; }
+    nav { background: #34495e; display: flex; justify-content: center; }
+    nav button { background: #34495e; color: white; border: none; padding: 10px 15px; cursor: pointer; }
+    nav button:hover { background: #2c3e50; }
+    section { display: none; padding: 20px; }
+    section.active { display: block; }
+    table { border-collapse: collapse; width: 100%; margin: 10px 0; }
+    table, th, td { border: 1px solid #ccc; }
+    th, td { padding: 8px; text-align: left; }
+    .login-container { text-align: center; padding: 50px; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>RT 04 RW 08 Sindangbarang Loji</h1>
+  </header>
+
+  <div id="loginSection" class="login-container">
+    <h2>Login</h2>
+    <label>Role: 
+      <select id="roleSelect">
+        <option value="Admin">Admin</option>
+        <option value="Bendahara">Bendahara</option>
+      </select>
+    </label><br><br>
+    <input type="password" id="pinInput" placeholder="Masukkan PIN" />
+    <button onclick="login()">Login</button>
+  </div>
+
+  <div id="mainSection" class="hidden">
+    <nav id="menu"></nav>
+
+    <section id="dashboard" class="active">
+      <h2>Dashboard</h2>
+      <p>Saldo Kas: Rp <span id="saldoKas">0</span></p>
+    </section>
+
+    <section id="keuangan">
+      <h2>Keuangan</h2>
+      <input type="text" id="ketKeuangan" placeholder="Keterangan">
+      <input type="number" id="jumlahKeuangan" placeholder="Jumlah">
+      <select id="jenisKeuangan">
+        <option value="masuk">Pemasukan</option>
+        <option value="keluar">Pengeluaran</option>
+      </select>
+      <button onclick="tambahKeuangan()">Simpan</button>
+      <table id="tabelKeuangan"><tr><th>Tanggal</th><th>Keterangan</th><th>Jumlah</th><th>Jenis</th><th>Aksi</th></tr></table>
+      <input type="month" id="bulanKeuangan">
+      <button onclick="exportPDFKeuangan()">PDF Bulanan</button>
+    </section>
+
+    <section id="warga">
+      <h2>Daftar Warga</h2>
+      <input type="text" id="namaWarga" placeholder="Nama">
+      <button onclick="tambahWarga()">Tambah Warga</button>
+      <table id="tabelWarga"><tr><th>Nama</th></tr></table>
+    </section>
+
+    <section id="iuran">
+      <h2>Iuran Bulanan</h2>
+      <input type="month" id="bulanIuran" onchange="tampilIuran()">
+      <table id="tabelIuran"><tr><th>Nama</th><th>Status</th><th>Aksi</th></tr></table>
+      <p>Total Lunas: <span id="totalLunas">0</span> | Belum: <span id="totalBelum">0</span></p>
+      <button onclick="exportPDFIuran()">Cetak Laporan Iuran</button>
+    </section>
+
+    <section id="profil">
+      <h2>Profil RT</h2>
+      <label>Ubah PIN: <input type="password" id="ubahPIN"></label>
+      <button onclick="simpanPIN()">Simpan PIN</button>
+      <hr>
+      <button onclick="backupData()">Backup Data</button>
+      <input type="file" id="restoreFile" onchange="restoreData(event)">
+    </section>
+  </div>
+
+  <script>
+    let data = JSON.parse(localStorage.getItem('dataRT')) || {saldo:0,keuangan:[],warga:[],pin:'1234',iuran:{}};
+    let currentRole = '';
+
+    function saveData(){ localStorage.setItem('dataRT', JSON.stringify(data)); tampilKeuangan(); tampilWarga(); updateSaldo(); tampilIuran(); }
+    function login(){ let pin=document.getElementById('pinInput').value; let role=document.getElementById('roleSelect').value; if(pin===data.pin){currentRole=role; document.getElementById('loginSection').classList.add('hidden'); document.getElementById('mainSection').classList.remove('hidden'); buildMenu(); saveData();} else alert('PIN salah'); }
+
+    function buildMenu(){ let menu=document.getElementById('menu'); menu.innerHTML=''; let items=[{id:'dashboard',label:'Dashboard'},{id:'keuangan',label:'Keuangan'},{id:'warga',label:'Warga'},{id:'iuran',label:'Iuran Bulanan'},{id:'profil',label:'Profil'}]; if(currentRole==='Bendahara'){items=items.filter(i=>i.id==='dashboard'||i.id==='keuangan'||i.id==='iuran');} items.forEach(i=>{let btn=document.createElement('button'); btn.textContent=i.label; btn.onclick=()=>showSection(i.id); menu.appendChild(btn);}); }
+    function showSection(id){ document.querySelectorAll('section').forEach(s=>s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+
+    function updateSaldo(){document.getElementById('saldoKas').textContent=data.saldo;}
+    function tambahKeuangan(){let ket=document.getElementById('ketKeuangan').value; let jml=parseInt(document.getElementById('jumlahKeuangan').value); let jenis=document.getElementById('jenisKeuangan').value; if(!jml)return; data.keuangan.push({tgl:new Date().toLocaleDateString(),ket:ket,jml:jml,jenis:jenis}); if(jenis==='masuk') data.saldo+=jml; else data.saldo-=jml; saveData(); alert('Transaksi tersimpan');}
+    function tampilKeuangan(){let t=document.getElementById('tabelKeuangan'); t.innerHTML='<tr><th>Tanggal</th><th>Keterangan</th><th>Jumlah</th><th>Jenis</th><th>Aksi</th></tr>'; data.keuangan.forEach((k,i)=>{let row=t.insertRow(); row.insertCell(0).textContent=k.tgl; row.insertCell(1).textContent=k.ket; row.insertCell(2).textContent=k.jml; row.insertCell(3).textContent=k.jenis; let c=row.insertCell(4); let btn=document.createElement('button'); btn.textContent='Cetak Kwitansi'; btn.onclick=()=>cetakKwitansi(k); c.appendChild(btn); });}
+    function cetakKwitansi(k){let w=window.open('', '', 'width=600,height=400'); w.document.write('<h2>Kwitansi</h2><p>Tanggal: '+k.tgl+'</p><p>Keterangan: '+k.ket+'</p><p>Jumlah: Rp'+k.jml+'</p><p>Jenis: '+k.jenis+'</p><p><b>Stempel: RT 01 - Sah</b></p>'); w.print();}
+
+    function exportPDFKeuangan(){let {jsPDF}=window.jspdf; let doc=new jsPDF(); let bulan=document.getElementById('bulanKeuangan').value; doc.text('Laporan Keuangan Bulan '+bulan,10,10); let y=20; data.keuangan.filter(k=>k.tgl.includes(bulan.split('-')[1])).forEach(k=>{doc.text(`${k.tgl} - ${k.ket} - Rp${k.jml} - ${k.jenis}`,10,y); y+=10;}); doc.text('Stempel: RT 01 - Sah',10,y+10); doc.save('laporan-keuangan.pdf');}
+
+    function tambahWarga(){let nama=document.getElementById('namaWarga').value; if(!nama)return; data.warga.push(nama); saveData();}
+    function tampilWarga(){let t=document.getElementById('tabelWarga'); t.innerHTML='<tr><th>Nama</th></tr>'; data.warga.forEach(w=>{let row=t.insertRow(); row.insertCell(0).textContent=w;});}
+
+    function tampilIuran(){let bulan=document.getElementById('bulanIuran').value; if(!bulan) return; if(!data.iuran[bulan]) data.iuran[bulan]={}; data.warga.forEach(w=>{ if(!data.iuran[bulan][w]) data.iuran[bulan][w]='Belum'; }); let t=document.getElementById('tabelIuran'); t.innerHTML='<tr><th>Nama</th><th>Status</th><th>Aksi</th></tr>'; let lunas=0; let belum=0; Object.keys(data.iuran[bulan]).forEach(w=>{let row=t.insertRow(); row.insertCell(0).textContent=w; row.insertCell(1).textContent=data.iuran[bulan][w]; let c=row.insertCell(2); let btn=document.createElement('button'); btn.textContent='Lunas'; btn.onclick=()=>{data.iuran[bulan][w]='Lunas'; data.keuangan.push({tgl:new Date().toLocaleDateString(),ket:'Iuran '+w,jml:50000,jenis:'masuk'}); data.saldo+=50000; saveData(); tampilIuran();}; c.appendChild(btn); if(data.iuran[bulan][w]==='Lunas') lunas++; else belum++; }); document.getElementById('totalLunas').textContent=lunas; document.getElementById('totalBelum').textContent=belum; saveData();}
+
+    function exportPDFIuran(){let {jsPDF}=window.jspdf; let doc=new jsPDF(); let bulan=document.getElementById('bulanIuran').value; doc.text('Laporan Iuran Bulan '+bulan,10,10); let y=20; Object.entries(data.iuran[bulan]||{}).forEach(([w,s])=>{doc.text(`${w}: ${s}`,10,y); y+=10;}); doc.text('Stempel: RT 01 - Sah',10,y+10); doc.save('laporan-iuran.pdf');}
+
+    function simpanPIN(){let pin=document.getElementById('ubahPIN').value; if(pin){data.pin=pin; saveData(); alert('PIN diubah');}}
+
+    function backupData(){let blob=new Blob([JSON.stringify(data)],{type:'application/json'}); let a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='backup-rt.json'; a.click();}
+    function restoreData(e){let file=e.target.files[0]; let reader=new FileReader(); reader.onload=function(){data=JSON.parse(reader.result); saveData();}; reader.readAsText(file);}
+
+    saveData();
+  </script>
+</body>
+</html>
